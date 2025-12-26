@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Invoice } from '../types';
 
 const initialInvoices: Invoice[] = [
@@ -11,22 +11,25 @@ const initialInvoices: Invoice[] = [
 export function useInvoices(companyId: string | undefined) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setInvoices([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
     const STORAGE_KEY = `invoices_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setInvoices(JSON.parse(stored));
       } else {
-        if (companyId === '1') { // Default data for ACME
+        if (companyId === '1') {
           setInvoices(initialInvoices);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialInvoices));
         } else {
           setInvoices([]);
         }
@@ -36,40 +39,33 @@ export function useInvoices(companyId: string | undefined) {
       setInvoices([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: Invoice[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `invoices_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setInvoices(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `invoices_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
+      } catch (error) {
+        console.error("Failed to save invoices", error);
+      }
+  }, [invoices, companyId]);
   
   const addInvoice = useCallback((data: Omit<Invoice, 'id'>) => {
     const newInvoice: Invoice = { ...data, id: `inv-${Date.now()}` };
-    setInvoices(prev => {
-        const updated = [...prev, newInvoice];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setInvoices(prev => [...prev, newInvoice]);
+  }, []);
 
   const updateInvoice = useCallback((data: Invoice) => {
-    setInvoices(prev => {
-        const updated = prev.map(i => i.id === data.id ? data : i);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setInvoices(prev => prev.map(i => i.id === data.id ? data : i));
+  }, []);
 
   const deleteInvoice = useCallback((id: string) => {
-     setInvoices(prev => {
-        const updated = prev.filter(i => i.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setInvoices(prev => prev.filter(i => i.id !== id));
+  }, []);
 
   return { invoices, loading, addInvoice, updateInvoice, deleteInvoice };
 }

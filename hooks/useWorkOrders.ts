@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { WorkOrder } from '../types';
 
 const initialWorkOrders: WorkOrder[] = [
@@ -10,22 +11,26 @@ const initialWorkOrders: WorkOrder[] = [
 export function useWorkOrders(companyId: string | undefined) {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setWorkOrders([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `work_orders_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setWorkOrders(JSON.parse(stored));
       } else {
-        if (companyId === '1') { // Default data for ACME
+        if (companyId === '1') { 
           setWorkOrders(initialWorkOrders);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialWorkOrders));
         } else {
           setWorkOrders([]);
         }
@@ -35,43 +40,33 @@ export function useWorkOrders(companyId: string | undefined) {
       setWorkOrders([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: WorkOrder[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `work_orders_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setWorkOrders(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `work_orders_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(workOrders));
+      } catch (error) {
+        console.error("Failed to save work orders", error);
+      }
+  }, [workOrders, companyId]);
   
   const addWorkOrder = useCallback((data: Omit<WorkOrder, 'id'>) => {
-    const newWorkOrder: WorkOrder = {
-      ...data,
-      id: new Date().getTime().toString(),
-    };
-    setWorkOrders(prev => {
-        const updated = [...prev, newWorkOrder];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    const newWorkOrder: WorkOrder = { ...data, id: new Date().getTime().toString() };
+    setWorkOrders(prev => [...prev, newWorkOrder]);
+  }, []);
 
   const updateWorkOrder = useCallback((data: WorkOrder) => {
-    setWorkOrders(prev => {
-        const updated = prev.map(wo => wo.id === data.id ? data : wo);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setWorkOrders(prev => prev.map(wo => wo.id === data.id ? data : wo));
+  }, []);
 
   const deleteWorkOrder = useCallback((id: string) => {
-     setWorkOrders(prev => {
-        const updated = prev.filter(wo => wo.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setWorkOrders(prev => prev.filter(wo => wo.id !== id));
+  }, []);
 
   return { workOrders, loading, addWorkOrder, updateWorkOrder, deleteWorkOrder };
 }

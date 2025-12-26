@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Machine } from '../types';
 
 const initialMachines: Machine[] = [
@@ -15,23 +15,38 @@ const initialMachines: Machine[] = [
 export function useMachines(companyId: string | undefined) {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setMachines([]);
         setLoading(false);
         return;
     }
+    
+    setLoading(true);
+    isLoaded.current = false;
+    
     const STORAGE_KEY = `machines_data_${companyId}`;
     try {
       const storedMachines = localStorage.getItem(STORAGE_KEY);
       if (storedMachines) {
-        setMachines(JSON.parse(storedMachines));
+        try {
+            const parsed = JSON.parse(storedMachines);
+            if (Array.isArray(parsed)) {
+                setMachines(parsed);
+            } else {
+                console.warn("Corrupted machines data found (not an array), resetting to empty.");
+                setMachines([]);
+            }
+        } catch (e) {
+             console.error("Failed to parse machines JSON", e);
+             setMachines([]);
+        }
       } else {
-        // Only set initial machines for the default company 'ACME'
         if (companyId === '1') {
           setMachines(initialMachines);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialMachines));
         } else {
           setMachines([]);
         }
@@ -41,43 +56,38 @@ export function useMachines(companyId: string | undefined) {
       setMachines([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updatedMachines: Machine[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `machines_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedMachines));
-    setMachines(updatedMachines);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      
+      const STORAGE_KEY = `machines_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(machines));
+      } catch (error) {
+        console.error("Failed to save machines to storage", error);
+      }
+  }, [machines, companyId]);
   
   const addMachine = useCallback((machineData: Omit<Machine, 'id'>) => {
     const newMachine: Machine = {
       ...machineData,
-      id: new Date().getTime().toString(),
+      // Use a more robust ID generation to prevent collisions
+      id: `mach-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
-    setMachines(prevMachines => {
-        const updatedMachines = [...prevMachines, newMachine];
-        updateStorage(updatedMachines);
-        return updatedMachines;
-    });
-  }, [updateStorage]);
+    setMachines(prev => [...prev, newMachine]);
+  }, []);
 
   const updateMachine = useCallback((machineData: Machine) => {
-    setMachines(prevMachines => {
-        const updatedMachines = prevMachines.map(m => m.id === machineData.id ? machineData : m);
-        updateStorage(updatedMachines);
-        return updatedMachines;
-    });
-  }, [updateStorage]);
+    setMachines(prev => prev.map(m => m.id === machineData.id ? machineData : m));
+  }, []);
 
   const deleteMachine = useCallback((id: string) => {
-     setMachines(prevMachines => {
-        const updatedMachines = prevMachines.filter(m => m.id !== id);
-        updateStorage(updatedMachines);
-        return updatedMachines;
-    });
-  }, [updateStorage]);
+     setMachines(prev => prev.filter(m => m.id !== id));
+  }, []);
 
   return { machines, loading, addMachine, updateMachine, deleteMachine };
 }

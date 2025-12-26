@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProductionPlan } from '../types';
 
 const initialPlans: ProductionPlan[] = [
@@ -10,22 +11,26 @@ const initialPlans: ProductionPlan[] = [
 export function useProductionPlanning(companyId: string | undefined) {
   const [plans, setPlans] = useState<ProductionPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setPlans([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `prod_plans_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setPlans(JSON.parse(stored));
       } else {
-        if (companyId === '1') { // Default data for ACME
+        if (companyId === '1') {
           setPlans(initialPlans);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialPlans));
         } else {
           setPlans([]);
         }
@@ -35,40 +40,33 @@ export function useProductionPlanning(companyId: string | undefined) {
       setPlans([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: ProductionPlan[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `prod_plans_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setPlans(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `prod_plans_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+      } catch (error) {
+        console.error("Failed to save plans", error);
+      }
+  }, [plans, companyId]);
   
   const addPlan = useCallback((data: Omit<ProductionPlan, 'id'>) => {
     const newPlan: ProductionPlan = { ...data, id: `plan-${Date.now()}` };
-    setPlans(prev => {
-        const updated = [...prev, newPlan];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setPlans(prev => [...prev, newPlan]);
+  }, []);
 
   const updatePlan = useCallback((data: ProductionPlan) => {
-    setPlans(prev => {
-        const updated = prev.map(p => p.id === data.id ? data : p);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setPlans(prev => prev.map(p => p.id === data.id ? data : p));
+  }, []);
 
   const deletePlan = useCallback((id: string) => {
-     setPlans(prev => {
-        const updated = prev.filter(p => p.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setPlans(prev => prev.filter(p => p.id !== id));
+  }, []);
 
   return { plans, loading, addPlan, updatePlan, deletePlan };
 }

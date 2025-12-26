@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Shipment } from '../types';
 
 const initialShipments: Shipment[] = [
@@ -10,22 +11,26 @@ const initialShipments: Shipment[] = [
 export function useShipments(companyId: string | undefined) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setShipments([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `shipments_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setShipments(JSON.parse(stored));
       } else {
-        if (companyId === '1') { // Default data for ACME
+        if (companyId === '1') {
           setShipments(initialShipments);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialShipments));
         } else {
           setShipments([]);
         }
@@ -35,40 +40,33 @@ export function useShipments(companyId: string | undefined) {
       setShipments([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: Shipment[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `shipments_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setShipments(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `shipments_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(shipments));
+      } catch (error) {
+        console.error("Failed to save shipments", error);
+      }
+  }, [shipments, companyId]);
   
   const addShipment = useCallback((data: Omit<Shipment, 'id'>) => {
     const newShipment: Shipment = { ...data, id: `ship-${Date.now()}` };
-    setShipments(prev => {
-        const updated = [...prev, newShipment];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setShipments(prev => [...prev, newShipment]);
+  }, []);
 
   const updateShipment = useCallback((data: Shipment) => {
-    setShipments(prev => {
-        const updated = prev.map(s => s.id === data.id ? data : s);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setShipments(prev => prev.map(s => s.id === data.id ? data : s));
+  }, []);
 
   const deleteShipment = useCallback((id: string) => {
-     setShipments(prev => {
-        const updated = prev.filter(s => s.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setShipments(prev => prev.filter(s => s.id !== id));
+  }, []);
 
   return { shipments, loading, addShipment, updateShipment, deleteShipment };
 }

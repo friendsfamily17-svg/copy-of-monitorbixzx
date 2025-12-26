@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Customer } from '../types';
 
 const initialCustomers: Customer[] = [
@@ -10,13 +11,18 @@ const initialCustomers: Customer[] = [
 export function useCustomers(companyId: string | undefined) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setCustomers([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+    
     const STORAGE_KEY = `customers_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -25,7 +31,6 @@ export function useCustomers(companyId: string | undefined) {
       } else {
         if (companyId === '1') {
           setCustomers(initialCustomers);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialCustomers));
         } else {
           setCustomers([]);
         }
@@ -35,40 +40,33 @@ export function useCustomers(companyId: string | undefined) {
       setCustomers([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: Customer[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `customers_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setCustomers(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `customers_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(customers));
+      } catch (error) {
+        console.error("Failed to save customers", error);
+      }
+  }, [customers, companyId]);
   
   const addCustomer = useCallback((data: Omit<Customer, 'id'>) => {
     const newCustomer: Customer = { ...data, id: new Date().getTime().toString() };
-    setCustomers(prev => {
-        const updated = [...prev, newCustomer];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setCustomers(prev => [...prev, newCustomer]);
+  }, []);
 
   const updateCustomer = useCallback((data: Customer) => {
-    setCustomers(prev => {
-        const updated = prev.map(c => c.id === data.id ? data : c);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setCustomers(prev => prev.map(c => c.id === data.id ? data : c));
+  }, []);
 
   const deleteCustomer = useCallback((id: string) => {
-     setCustomers(prev => {
-        const updated = prev.filter(c => c.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setCustomers(prev => prev.filter(c => c.id !== id));
+  }, []);
 
   return { customers, loading, addCustomer, updateCustomer, deleteCustomer };
 }

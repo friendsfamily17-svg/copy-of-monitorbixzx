@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { User } from '../types';
 
 const initialUsers: User[] = [
@@ -11,13 +11,18 @@ const initialUsers: User[] = [
 export function useUsers(companyId: string | undefined) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setUsers([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `users_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -26,7 +31,6 @@ export function useUsers(companyId: string | undefined) {
       } else {
         if (companyId === '1') {
           setUsers(initialUsers);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialUsers));
         } else {
           setUsers([]);
         }
@@ -36,40 +40,33 @@ export function useUsers(companyId: string | undefined) {
       setUsers([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: User[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `users_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setUsers(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `users_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+      } catch (error) {
+        console.error("Failed to save users", error);
+      }
+  }, [users, companyId]);
   
   const addUser = useCallback((data: Omit<User, 'id' | 'lastLogin'>) => {
     const newUser: User = { ...data, id: `usr-${Date.now()}`, lastLogin: 'Never' };
-    setUsers(prev => {
-        const updated = [...prev, newUser];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setUsers(prev => [...prev, newUser]);
+  }, []);
 
   const updateUser = useCallback((data: User) => {
-    setUsers(prev => {
-        const updated = prev.map(u => u.id === data.id ? data : u);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setUsers(prev => prev.map(u => u.id === data.id ? data : u));
+  }, []);
 
   const deleteUser = useCallback((id: string) => {
-     setUsers(prev => {
-        const updated = prev.filter(u => u.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setUsers(prev => prev.filter(u => u.id !== id));
+  }, []);
 
   return { users, loading, addUser, updateUser, deleteUser };
 }

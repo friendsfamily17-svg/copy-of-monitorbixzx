@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { KpiSuggestion } from '../types';
 import { FormState } from '../components/GeneratorForm';
@@ -72,8 +73,9 @@ export async function generateKpiSuggestions(formState: FormState): Promise<KpiS
     The output MUST be a valid JSON object matching the provided schema.
   `;
   
+  // Fixed: Updated model to 'gemini-3-flash-preview' for basic text tasks following guidelines.
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
       responseMimeType: "application/json",

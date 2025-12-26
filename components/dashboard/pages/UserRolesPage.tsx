@@ -45,22 +45,22 @@ export default function UserRolesPage({ companyId }: { companyId: string }) {
         </div>
       </div>
 
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-800">
               <tr>
-                <th className="p-4 font-semibold">Name</th>
-                <th className="p-4 font-semibold">Email</th>
-                <th className="p-4 font-semibold">Role</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold">Last Login</th>
-                <th className="p-4 font-semibold text-right">Actions</th>
+                <th className="p-4 font-semibold text-xs uppercase tracking-wider text-slate-500">Name</th>
+                <th className="p-4 font-semibold text-xs uppercase tracking-wider text-slate-500">Email</th>
+                <th className="p-4 font-semibold text-xs uppercase tracking-wider text-slate-500">Role</th>
+                <th className="p-4 font-semibold text-xs uppercase tracking-wider text-slate-500">Status</th>
+                <th className="p-4 font-semibold text-xs uppercase tracking-wider text-slate-500">Last Login</th>
+                <th className="p-4 font-semibold text-xs uppercase tracking-wider text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map(user => (
-                <tr key={user.id} className="border-t border-slate-700 hover:bg-slate-800">
+                <tr key={user.id} className="border-t border-slate-700 hover:bg-slate-800 transition-colors">
                   <td className="p-4">
                       <div className="flex items-center">
                           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs mr-3">
@@ -103,39 +103,81 @@ const UserFormModal = ({ isOpen, onClose, onSave, user }: { isOpen: boolean, onC
         role: user?.role || 'Viewer',
         status: user?.status || 'Active',
     });
+    const [error, setError] = useState<string | null>(null);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSave({ id: user?.id, ...formData }); };
+    const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+        setError(null);
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (formData.name.trim().length < 2) {
+            setError("User's full name is required.");
+            return;
+        }
+        if (!validateEmail(formData.email)) {
+            setError("Please provide a valid email address.");
+            return;
+        }
+
+        onSave({ id: user?.id, ...formData });
+    };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={user ? 'Edit User' : 'Invite New User'}>
-            <form onSubmit={handleSubmit} className="space-y-4">
+        <Modal isOpen={isOpen} onClose={onClose} title={user ? 'Edit User Details' : 'Invite Team Member'}>
+            <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-shake">
+                        <i className="fas fa-exclamation-circle"></i>
+                        {error}
+                    </div>
+                )}
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Full Name</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleChange} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 focus:ring-2 focus:ring-purple-500"/>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Full Name</label>
+                    <input 
+                        type="text" 
+                        name="name" 
+                        value={formData.name} 
+                        onChange={handleChange} 
+                        required 
+                        placeholder="John Doe"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-purple-500 text-white"
+                    />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Email Address</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 focus:ring-2 focus:ring-purple-500"/>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
+                    <input 
+                        type="email" 
+                        name="email" 
+                        value={formData.email} 
+                        onChange={handleChange} 
+                        required 
+                        placeholder="john@company.com"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-purple-500 text-white"
+                    />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
-                        <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 focus:ring-2 focus:ring-purple-500">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">System Role</label>
+                        <select name="role" value={formData.role} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-purple-500 text-white">
                             {USER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
-                        <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-700 border border-slate-600 rounded-md p-2 focus:ring-2 focus:ring-purple-500">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Account Status</label>
+                        <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 focus:ring-2 focus:ring-purple-500 text-white">
                             <option value="Active">Active</option>
                             <option value="Inactive">Inactive</option>
                         </select>
                     </div>
                 </div>
-                <div className="flex justify-end gap-4 pt-4">
+                <div className="flex justify-end gap-3 pt-6 border-t border-slate-700">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" variant="primary">{user ? 'Save Changes' : 'Send Invite'}</Button>
+                    <Button type="submit" variant="primary">{user ? 'Update Profile' : 'Send Invitation'}</Button>
                 </div>
             </form>
         </Modal>

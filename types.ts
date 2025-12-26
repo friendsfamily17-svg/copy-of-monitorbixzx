@@ -1,5 +1,5 @@
 
-import { MACHINE_STATUSES, MACHINE_TYPES, WORK_ORDER_STATUSES, PURCHASE_ORDER_STATUSES, CUSTOMER_STATUSES, SHIPMENT_STATUSES, SALES_DEAL_STAGES, PRODUCTION_PLAN_STATUSES, QUALITY_CHECK_RESULTS, INVOICE_STATUSES, USER_ROLES } from "./data/constants";
+import { MACHINE_STATUSES, MACHINE_TYPES, WORK_ORDER_STATUSES, PURCHASE_ORDER_STATUSES, CUSTOMER_STATUSES, SHIPMENT_STATUSES, SALES_DEAL_STAGES, PRODUCTION_PLAN_STATUSES, QUALITY_CHECK_RESULTS, INVOICE_STATUSES, USER_ROLES, SKILL_LEVELS, PROJECT_STATUSES, TICKET_PRIORITIES, TICKET_STATUSES, CAMPAIGN_TYPES, MAINTENANCE_TYPES } from "./data/constants";
 
 export type MachineStatus = typeof MACHINE_STATUSES[number];
 
@@ -8,6 +8,11 @@ export interface Machine {
   name: string;
   type: typeof MACHINE_TYPES[number];
   status: MachineStatus;
+  telemetry?: {
+    temp: number;
+    load: number;
+    vibration: 'Normal' | 'High' | 'Critical';
+  };
 }
 
 export type WorkOrderStatus = typeof WORK_ORDER_STATUSES[number];
@@ -15,10 +20,11 @@ export type WorkOrderStatus = typeof WORK_ORDER_STATUSES[number];
 export interface WorkOrder {
   id: string;
   orderNumber: string;
-  machineId: string | null; // Can be unassigned
+  machineId: string | null;
   description: string;
   status: WorkOrderStatus;
-  dueDate: string; // Stored as 'YYYY-MM-DD'
+  dueDate: string;
+  assignedPersonnelId?: string;
 }
 
 export interface InventoryItem {
@@ -28,6 +34,9 @@ export interface InventoryItem {
     quantity: number;
     reorderPoint: number;
     location: string;
+    costPerUnit: number;
+    category?: string;
+    imageUrl?: string;
 }
 
 export interface Vendor {
@@ -53,8 +62,8 @@ export interface PurchaseOrder {
     poNumber: string;
     vendorId: string;
     items: PurchaseOrderItem[];
-    orderDate: string; // YYY-MM-DD
-    expectedDeliveryDate: string; // YYYY-MM-DD
+    orderDate: string;
+    expectedDeliveryDate: string;
     status: PurchaseOrderStatus;
     totalAmount: number;
 }
@@ -68,21 +77,8 @@ export interface Customer {
     email: string;
     phone: string;
     status: CustomerStatus;
-}
-
-// New Types for Manufacturing Expansion
-
-export type ShipmentStatus = typeof SHIPMENT_STATUSES[number];
-
-export interface Shipment {
-    id: string;
-    trackingNumber: string;
-    carrier: string;
-    status: ShipmentStatus;
-    origin: string;
-    destination: string;
-    estimatedDelivery: string; // YYYY-MM-DD
-    type: 'Inbound' | 'Outbound';
+    lastContact?: string;
+    nextAction?: string;
 }
 
 export type SalesDealStage = typeof SALES_DEAL_STAGES[number];
@@ -93,48 +89,160 @@ export interface SalesDeal {
     customerId: string;
     stage: SalesDealStage;
     value: number;
-    closeDate: string; // YYYY-MM-DD
+    closeDate: string;
+    linkedBomId?: string;
+    probability?: number;
 }
 
-export type ProductionPlanStatus = typeof PRODUCTION_PLAN_STATUSES[number];
-
-export interface ProductionPlan {
+export interface SalesQuote {
     id: string;
-    planName: string;
-    workOrderId: string;
-    startDate: string; // YYYY-MM-DD
-    endDate: string; // YYYY-MM-DD
-    outputQuantity: number;
-    status: ProductionPlanStatus;
+    quoteNumber: string;
+    customerId: string;
+    items: { description: string, qty: number, price: number }[];
+    total: number;
+    status: 'Draft' | 'Sent' | 'Accepted' | 'Rejected';
+    validUntil: string;
 }
 
-export type QualityCheckResult = typeof QUALITY_CHECK_RESULTS[number];
+// --- E-commerce ---
 
-export interface QualityCheck {
+export interface Product {
     id: string;
-    workOrderId: string;
-    partNumber: string;
-    checkDate: string; // YYYY-MM-DD
-    inspectorName: string;
-    result: QualityCheckResult;
-    notes: string;
-}
-
-
-export interface Kpi {
     name: string;
+    sku: string;
     description: string;
+    price: number;
+    stock: number;
+    imageUrl: string;
+    isPublished: boolean;
 }
 
-export interface KpiCategory {
-    categoryName: string;
-    kpis: Kpi[];
+// --- Events ---
+
+export interface BusinessEvent {
+    id: string;
+    title: string;
+    type: 'Meeting' | 'Conference' | 'Training' | 'Webinar';
+    date: string;
+    location: string;
+    attendees: number;
+    status: 'Planned' | 'Active' | 'Completed';
 }
 
-export interface KpiSuggestion {
-    categories: KpiCategory[];
+// --- Engineering & Product Structure ---
+
+export interface BomComponent {
+    id: string;
+    inventoryItemId: string;
+    quantityRequired: number;
 }
 
+export interface Bom {
+    id: string;
+    name: string;
+    productSku: string;
+    components: BomComponent[];
+    laborCostEstimate: number;
+    overheadCost: number;
+}
+
+// --- Human Resources ---
+
+export type SkillLevel = typeof SKILL_LEVELS[number];
+
+export interface Personnel {
+    id: string;
+    name: string;
+    role: string;
+    skills: string[];
+    hourlyRate: number;
+    status: 'Available' | 'On Shift' | 'Off';
+    payrollInfo?: { salary: number, frequency: 'Monthly' | 'Bi-Weekly' };
+    appraisalScore?: number;
+}
+
+// --- Project Management ---
+
+export type ProjectStatus = typeof PROJECT_STATUSES[number];
+
+export interface Project {
+    id: string;
+    name: string;
+    customerId: string;
+    status: ProjectStatus;
+    budget: number;
+    startDate: string;
+    endDate: string;
+    dealsLinked: string[];
+    completionPercentage?: number;
+}
+
+// --- CRM Helpdesk & Support ---
+
+export type TicketPriority = typeof TICKET_PRIORITIES[number];
+export type TicketStatus = typeof TICKET_STATUSES[number];
+
+export interface SupportTicket {
+    id: string;
+    title: string;
+    customerId: string;
+    priority: TicketPriority;
+    status: TicketStatus;
+    createdAt: string;
+    assignedToId?: string;
+}
+
+// --- Marketing Automation ---
+
+export type CampaignType = typeof CAMPAIGN_TYPES[number];
+
+export interface MarketingCampaign {
+    id: string;
+    name: string;
+    type: CampaignType;
+    status: 'Planned' | 'Active' | 'Completed';
+    budget: number;
+    leadsGenerated: number;
+    roi: number;
+    conversionRate?: number;
+}
+
+// --- Asset Maintenance (EAM) ---
+
+export type MaintenanceType = typeof MAINTENANCE_TYPES[number];
+
+export interface MaintenanceLog {
+    id: string;
+    machineId: string;
+    type: MaintenanceType;
+    scheduledDate: string;
+    performerId: string;
+    notes: string;
+    status: 'Scheduled' | 'Completed' | 'Overdue';
+}
+
+// --- Advanced Financials ---
+
+export interface LedgerEntry {
+    id: string;
+    date: string;
+    description: string;
+    category: 'Revenue' | 'Expense' | 'Asset' | 'Liability';
+    amount: number;
+    type: 'Debit' | 'Credit';
+}
+
+// --- Platform Core ---
+
+export type IndustryType = 'Manufacturing' | 'Hospital' | 'Professional Services' | 'Logistics' | 'E-commerce';
+
+export interface Company {
+    id: string;
+    name: string;
+    email: string;
+    subscribedServices: string[];
+    industryType: IndustryType;
+}
 
 export interface Service {
     id: string;
@@ -143,16 +251,8 @@ export interface Service {
     description: string;
     group: string;
     href: string;
+    verticals?: IndustryType[]; 
 }
-
-export interface Company {
-    id: string;
-    name: string;
-    email: string;
-    subscribedServices: string[]; // Array of service IDs
-}
-
-// --- New Features Types ---
 
 export type InvoiceStatus = typeof INVOICE_STATUSES[number];
 
@@ -172,6 +272,8 @@ export interface Invoice {
     items: InvoiceItem[];
     totalAmount: number;
     status: InvoiceStatus;
+    paymentUrl?: string;
+    isFollowUpSent?: boolean;
 }
 
 export type UserRole = typeof USER_ROLES[number];
@@ -183,6 +285,50 @@ export interface User {
     role: UserRole;
     status: 'Active' | 'Inactive';
     lastLogin: string;
+}
+
+export interface KpiSuggestion {
+    categories: {
+        categoryName: string;
+        kpis: { name: string; description: string }[];
+    }[];
+}
+
+export type ShipmentStatus = typeof SHIPMENT_STATUSES[number];
+
+export interface Shipment {
+    id: string;
+    trackingNumber: string;
+    carrier: string;
+    status: ShipmentStatus;
+    origin: string;
+    destination: string;
+    estimatedDelivery: string;
+    type: 'Inbound' | 'Outbound';
+}
+
+export type ProductionPlanStatus = typeof PRODUCTION_PLAN_STATUSES[number];
+
+export interface ProductionPlan {
+    id: string;
+    planName: string;
+    workOrderId: string;
+    startDate: string;
+    endDate: string;
+    outputQuantity: number;
+    status: ProductionPlanStatus;
+}
+
+export type QualityCheckResult = typeof QUALITY_CHECK_RESULTS[number];
+
+export interface QualityCheck {
+    id: string;
+    workOrderId: string;
+    partNumber: string;
+    checkDate: string;
+    inspectorName: string;
+    result: QualityCheckResult;
+    notes: string;
 }
 
 export interface AppSettings {

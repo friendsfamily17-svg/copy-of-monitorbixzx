@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { SalesDeal } from '../types';
 
 const initialDeals: SalesDeal[] = [
@@ -12,22 +13,26 @@ const initialDeals: SalesDeal[] = [
 export function useSalesPipeline(companyId: string | undefined) {
   const [deals, setDeals] = useState<SalesDeal[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setDeals([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `sales_deals_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setDeals(JSON.parse(stored));
       } else {
-        if (companyId === '1') { // Default data for ACME
+        if (companyId === '1') {
           setDeals(initialDeals);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialDeals));
         } else {
           setDeals([]);
         }
@@ -37,40 +42,33 @@ export function useSalesPipeline(companyId: string | undefined) {
       setDeals([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: SalesDeal[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `sales_deals_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setDeals(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `sales_deals_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(deals));
+      } catch (error) {
+        console.error("Failed to save deals", error);
+      }
+  }, [deals, companyId]);
   
   const addDeal = useCallback((data: Omit<SalesDeal, 'id'>) => {
     const newDeal: SalesDeal = { ...data, id: `deal-${Date.now()}` };
-    setDeals(prev => {
-        const updated = [...prev, newDeal];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setDeals(prev => [...prev, newDeal]);
+  }, []);
 
   const updateDeal = useCallback((data: SalesDeal) => {
-    setDeals(prev => {
-        const updated = prev.map(d => d.id === data.id ? data : d);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setDeals(prev => prev.map(d => d.id === data.id ? data : d));
+  }, []);
 
   const deleteDeal = useCallback((id: string) => {
-     setDeals(prev => {
-        const updated = prev.filter(d => d.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setDeals(prev => prev.filter(d => d.id !== id));
+  }, []);
 
   return { deals, loading, addDeal, updateDeal, deleteDeal };
 }

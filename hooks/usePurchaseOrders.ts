@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PurchaseOrder } from '../types';
 
 const initialPOs: PurchaseOrder[] = [
@@ -9,13 +10,18 @@ const initialPOs: PurchaseOrder[] = [
 export function usePurchaseOrders(companyId: string | undefined) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setPurchaseOrders([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `purchase_orders_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -24,7 +30,6 @@ export function usePurchaseOrders(companyId: string | undefined) {
       } else {
         if (companyId === '1') {
           setPurchaseOrders(initialPOs);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialPOs));
         } else {
           setPurchaseOrders([]);
         }
@@ -34,40 +39,33 @@ export function usePurchaseOrders(companyId: string | undefined) {
       setPurchaseOrders([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: PurchaseOrder[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `purchase_orders_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setPurchaseOrders(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `purchase_orders_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(purchaseOrders));
+      } catch (error) {
+        console.error("Failed to save POs", error);
+      }
+  }, [purchaseOrders, companyId]);
   
   const addPurchaseOrder = useCallback((data: Omit<PurchaseOrder, 'id'>) => {
     const newPO: PurchaseOrder = { ...data, id: new Date().getTime().toString() };
-    setPurchaseOrders(prev => {
-        const updated = [...prev, newPO];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setPurchaseOrders(prev => [...prev, newPO]);
+  }, []);
 
   const updatePurchaseOrder = useCallback((data: PurchaseOrder) => {
-    setPurchaseOrders(prev => {
-        const updated = prev.map(po => po.id === data.id ? data : po);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setPurchaseOrders(prev => prev.map(po => po.id === data.id ? data : po));
+  }, []);
 
   const deletePurchaseOrder = useCallback((id: string) => {
-     setPurchaseOrders(prev => {
-        const updated = prev.filter(po => po.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setPurchaseOrders(prev => prev.filter(po => po.id !== id));
+  }, []);
 
   return { purchaseOrders, loading, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder };
 }

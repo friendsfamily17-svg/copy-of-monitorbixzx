@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Company } from '../types';
+import { Company, IndustryType } from '../types';
 
 const COMPANIES_STORAGE_KEY = 'registered_companies';
 const ACTIVE_COMPANY_ID_KEY = 'active_company_id';
@@ -11,11 +11,11 @@ type AuthResult = {
 };
 
 const getInitialCompanies = (): Company[] => {
-    // Add a default company for demonstration purposes
     const defaultCompany: Company = {
         id: '1',
         name: 'ACME Manufacturing',
         email: 'admin@acme.com',
+        industryType: 'Manufacturing',
         subscribedServices: [
             'dashboard', 'machines', 'work-orders', 
             'inventory', 'production-planning', 'quality-control',
@@ -28,23 +28,25 @@ const getInitialCompanies = (): Company[] => {
     try {
         const stored = localStorage.getItem(COMPANIES_STORAGE_KEY);
         if (stored) {
-            const companies = JSON.parse(stored);
-            // Ensure default company exists
-            if (!companies.find((c: Company) => c.id === '1')) {
-                return [defaultCompany, ...companies];
+            try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                    if (!parsed.find((c: Company) => c.id === '1')) {
+                        return [defaultCompany, ...parsed];
+                    }
+                    return parsed;
+                }
+            } catch (e) {
+                console.error("[Auth] JSON parse error for companies", e);
             }
-            return companies;
         }
     } catch (error) {
-        console.error("Failed to parse companies from storage", error);
+        console.error("[Auth] Failed to read companies from storage", error);
     }
     
-    // If nothing in storage or error, set the default company safely
     try {
         localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify([defaultCompany]));
-    } catch (e) {
-        console.error("Failed to save default company to local storage", e);
-    }
+    } catch (e) {}
     
     return [defaultCompany];
 };
@@ -56,14 +58,18 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        console.log("[System] Initializing Auth Service...");
         try {
             const activeId = localStorage.getItem(ACTIVE_COMPANY_ID_KEY);
             if (activeId) {
                 const company = companies.find(c => c.id === activeId);
-                setActiveCompany(company || null);
+                if (company) {
+                    console.log(`[System] Session restored for tenant: ${company.name} (${company.industryType})`);
+                    setActiveCompany(company);
+                }
             }
         } catch (error) {
-            console.error("Failed to load active company", error);
+            console.error("[System] Failed to load active company", error);
         } finally {
             setLoading(false);
         }
@@ -73,59 +79,59 @@ export function useAuth() {
         setCompanies(updatedCompanies);
         try {
             localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(updatedCompanies));
-        } catch (e) {
-            console.error("Failed to update companies storage", e);
-        }
+        } catch (e) {}
     };
     
     const login = async (credentials: { email: string, pass: string }): Promise<AuthResult> => {
-        // In a real app, you'd verify the password hash. Here we just check the email.
+        console.log(`[Auth] Attempting login for: ${credentials.email}`);
         const company = companies.find(c => c.email.toLowerCase() === credentials.email.toLowerCase());
+        
         if (company) {
+            console.log(`[Auth] Authentication successful. Mapping to tenant cluster: ${company.id}`);
             setActiveCompany(company);
             try {
                 localStorage.setItem(ACTIVE_COMPANY_ID_KEY, company.id);
-            } catch (e) {
-                console.error("Failed to save active company ID", e);
-            }
+            } catch (e) {}
             return { success: true };
         }
+        
+        console.warn(`[Auth] Authentication failed for: ${credentials.email}`);
         return { success: false, message: 'Invalid credentials. Please try again.' };
     };
     
-    const signup = async (details: { companyName: string, email: string, pass: string, services: string[] }): Promise<AuthResult> => {
+    const signup = async (details: { companyName: string, email: string, pass: string, services: string[], industry: IndustryType }): Promise<AuthResult> => {
+        console.log(`[Auth] Initializing new tenant: ${details.companyName} (${details.industry})`);
         const existing = companies.find(c => c.email.toLowerCase() === details.email.toLowerCase());
+        
         if (existing) {
+            console.warn(`[Auth] Signup failed: Email ${details.email} is already registered.`);
             return { success: false, message: 'An account with this email already exists.' };
         }
 
         const newCompany: Company = {
-            id: new Date().getTime().toString(),
+            id: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: details.companyName,
             email: details.email,
+            industryType: details.industry,
             subscribedServices: details.services,
         };
 
+        console.log(`[Auth] Provisioning workspace ${newCompany.id} with ${details.services.length} services.`);
         updateCompaniesStorage([...companies, newCompany]);
-        
-        // Automatically log in the new company
         setActiveCompany(newCompany);
         try {
             localStorage.setItem(ACTIVE_COMPANY_ID_KEY, newCompany.id);
-        } catch (e) {
-            console.error("Failed to save active company ID", e);
-        }
+        } catch (e) {}
 
         return { success: true };
     };
 
     const logout = () => {
+        console.log(`[Auth] Terminating session for tenant: ${activeCompany?.name}`);
         setActiveCompany(null);
         try {
             localStorage.removeItem(ACTIVE_COMPANY_ID_KEY);
-        } catch (e) {
-            console.error("Failed to remove active company ID", e);
-        }
+        } catch (e) {}
     };
 
     return { activeCompany, loading, login, signup, logout };

@@ -15,7 +15,7 @@ const StatusBadge: React.FC<{ status: InvoiceStatus }> = ({ status }) => {
     'Overdue': 'bg-red-500/20 text-red-300',
     'Cancelled': 'bg-slate-700 text-slate-400',
   };
-  return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status]}`}>{status}</span>;
+  return <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md tracking-wider ${styles[status]}`}>{status}</span>;
 };
 
 export default function InvoicingPage({ companyId }: { companyId: string }) {
@@ -45,7 +45,7 @@ export default function InvoicingPage({ companyId }: { companyId: string }) {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Delete this invoice?')) deleteInvoice(id);
+    if (window.confirm('Delete this invoice? This action cannot be reversed.')) deleteInvoice(id);
   };
 
   if (invLoading || custLoading) return <div className="flex justify-center items-center h-full"><i className="fas fa-spinner fa-spin text-4xl text-purple-400"></i></div>;
@@ -53,45 +53,64 @@ export default function InvoicingPage({ companyId }: { companyId: string }) {
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
-        <h2 className="text-xl font-semibold text-slate-300">Invoices ({filteredInvoices.length})</h2>
+        <div>
+            <h2 className="text-xl font-bold text-white">Financial Invoicing</h2>
+            <p className="text-sm text-slate-400 mt-1">Track payments and manage customer accounts.</p>
+        </div>
         <div className="flex items-center gap-2">
-            <input type="text" placeholder="Search invoice # or customer..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full sm:w-64 pl-4 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-md focus:ring-2 focus:ring-purple-500"/>
-            <Button onClick={() => openModal()} icon="fa-plus">Create Invoice</Button>
+            <div className="relative">
+                <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                <input type="text" placeholder="Search by INV# or client..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full sm:w-64 pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:ring-2 focus:ring-purple-500"/>
+            </div>
+            <Button onClick={() => openModal()} icon="fa-plus">Generate Invoice</Button>
         </div>
       </div>
 
-      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+      <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-slate-800">
+            <thead className="bg-slate-800 border-b border-slate-700">
               <tr>
-                <th className="p-4 font-semibold">Invoice #</th>
-                <th className="p-4 font-semibold">Customer</th>
-                <th className="p-4 font-semibold">Issue Date</th>
-                <th className="p-4 font-semibold">Due Date</th>
-                <th className="p-4 font-semibold">Amount</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold text-right">Actions</th>
+                <th className="p-4 font-bold text-xs uppercase tracking-wider text-slate-500">Invoice Reference</th>
+                <th className="p-4 font-bold text-xs uppercase tracking-wider text-slate-500">Customer</th>
+                <th className="p-4 font-bold text-xs uppercase tracking-wider text-slate-500">Dates</th>
+                <th className="p-4 font-bold text-xs uppercase tracking-wider text-slate-500 text-right">Total Amount</th>
+                <th className="p-4 font-bold text-xs uppercase tracking-wider text-slate-500 text-center">Status</th>
+                <th className="p-4 font-bold text-xs uppercase tracking-wider text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.map(inv => {
+              {filteredInvoices.length > 0 ? filteredInvoices.map(inv => {
                 const customer = customers.find(c => c.id === inv.customerId);
                 return (
-                    <tr key={inv.id} className="border-t border-slate-700 hover:bg-slate-800">
-                    <td className="p-4 font-medium text-white">{inv.invoiceNumber}</td>
-                    <td className="p-4 text-slate-300">{customer?.name || 'Unknown'}</td>
-                    <td className="p-4 text-slate-300">{inv.issueDate}</td>
-                    <td className="p-4 text-slate-300">{inv.dueDate}</td>
-                    <td className="p-4 text-slate-300 font-mono">${inv.totalAmount.toLocaleString()}</td>
-                    <td className="p-4"><StatusBadge status={inv.status} /></td>
+                    <tr key={inv.id} className="border-t border-slate-700/50 hover:bg-slate-800 transition-colors">
+                    <td className="p-4 font-bold text-white">{inv.invoiceNumber}</td>
+                    <td className="p-4">
+                        <div className="text-slate-200 font-semibold">{customer?.name || 'Unknown'}</div>
+                        <div className="text-xs text-slate-500">{customer?.companyName}</div>
+                    </td>
+                    <td className="p-4 text-xs">
+                        <div className="text-slate-400">Issued: {inv.issueDate}</div>
+                        <div className="text-slate-300 font-bold">Due: {inv.dueDate}</div>
+                    </td>
                     <td className="p-4 text-right">
-                        <button onClick={() => openModal(inv)} className="text-slate-400 hover:text-purple-400 p-2"><i className="fas fa-pencil-alt"></i></button>
-                        <button onClick={() => handleDelete(inv.id)} className="text-slate-400 hover:text-red-400 p-2"><i className="fas fa-trash-alt"></i></button>
+                        <span className="font-mono text-lg font-bold text-cyan-400">${inv.totalAmount.toLocaleString()}</span>
+                    </td>
+                    <td className="p-4 text-center"><StatusBadge status={inv.status} /></td>
+                    <td className="p-4 text-right">
+                        <button onClick={() => openModal(inv)} className="text-slate-400 hover:text-purple-400 p-2 transition-colors"><i className="fas fa-pencil-alt"></i></button>
+                        <button onClick={() => handleDelete(inv.id)} className="text-slate-400 hover:text-red-400 p-2 transition-colors"><i className="fas fa-trash-alt"></i></button>
                     </td>
                     </tr>
                 );
-              })}
+              }) : (
+                  <tr>
+                      <td colSpan={6} className="text-center py-20 text-slate-500">
+                          <i className="fas fa-file-invoice-dollar text-5xl mb-4 block"></i>
+                          No invoices found for this period.
+                      </td>
+                  </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -104,22 +123,27 @@ export default function InvoicingPage({ companyId }: { companyId: string }) {
 
 const InvoiceFormModal = ({ isOpen, onClose, onSave, invoice, customers }: { isOpen: boolean, onClose: () => void, onSave: (data: any) => void, invoice: Invoice | null, customers: Customer[] }) => {
     const [formData, setFormData] = useState({
-        invoiceNumber: invoice?.invoiceNumber || `INV-2024-${Math.floor(Math.random() * 1000)}`,
+        invoiceNumber: invoice?.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(Math.random() * 9000) + 1000}`,
         customerId: invoice?.customerId || '',
         issueDate: invoice?.issueDate || new Date().toISOString().split('T')[0],
-        dueDate: invoice?.dueDate || '',
+        dueDate: invoice?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         status: invoice?.status || 'Draft',
         items: (invoice?.items && invoice.items.length > 0) ? invoice.items : [{ id: `i-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }],
     });
+    const [error, setError] = useState<string | null>(null);
 
     const totalAmount = useMemo(() => formData.items.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unitPrice)), 0), [formData.items]);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setFormData({ ...formData, [e.target.name]: e.target.value });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+        setError(null);
+    };
     
     const handleItemChange = (index: number, field: keyof InvoiceItem, value: string | number) => {
         const newItems = [...formData.items];
         (newItems[index] as any)[field] = value;
         setFormData({ ...formData, items: newItems });
+        setError(null);
     };
 
     const addItem = () => setFormData({ ...formData, items: [...formData.items, { id: `i-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }]});
@@ -127,56 +151,95 @@ const InvoiceFormModal = ({ isOpen, onClose, onSave, invoice, customers }: { isO
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (!formData.customerId) return setError("Please select a target customer.");
+        if (new Date(formData.dueDate) < new Date(formData.issueDate)) return setError("Due date cannot be earlier than the issue date.");
+        if (formData.items.length === 0) return setError("An invoice must contain at least one line item.");
+        
+        for (const item of formData.items) {
+            if (item.description.trim().length < 3) return setError("Please provide a description for all items.");
+            if (Number(item.quantity) <= 0) return setError("Item quantities must be greater than zero.");
+            if (Number(item.unitPrice) < 0) return setError("Prices cannot be negative.");
+        }
+
         onSave({ id: invoice?.id, ...formData, totalAmount });
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={invoice ? 'Edit Invoice' : 'Create Invoice'}>
+        <Modal isOpen={isOpen} onClose={onClose} title={invoice ? 'Configure Invoice' : 'New Billing Statement'}>
             <form onSubmit={handleSubmit} className="space-y-4">
+                 {error && (
+                    <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl text-xs font-bold animate-shake">
+                        <i className="fas fa-exclamation-triangle mr-2"></i> {error}
+                    </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
-                    <input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} placeholder="Invoice #" required className="bg-slate-700 p-2 rounded-md"/>
-                    <select name="customerId" value={formData.customerId} onChange={handleChange} required className="bg-slate-700 p-2 rounded-md">
-                        <option value="">Select Customer</option>
-                        {customers.map(c => <option key={c.id} value={c.id}>{c.name} - {c.companyName}</option>)}
-                    </select>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Invoice ID</label>
+                        <input type="text" name="invoiceNumber" value={formData.invoiceNumber} onChange={handleChange} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white"/>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Customer</label>
+                        <select name="customerId" value={formData.customerId} onChange={handleChange} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                            <option value="">Select Account</option>
+                            {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.companyName})</option>)}
+                        </select>
+                    </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                        <label className="text-xs text-slate-400">Issue Date</label>
-                        <input type="date" name="issueDate" value={formData.issueDate} onChange={handleChange} required className="w-full bg-slate-700 p-2 rounded-md"/>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Issue Date</label>
+                        <input type="date" name="issueDate" value={formData.issueDate} onChange={handleChange} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white"/>
                     </div>
                     <div>
-                        <label className="text-xs text-slate-400">Due Date</label>
-                        <input type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required className="w-full bg-slate-700 p-2 rounded-md"/>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Due Date</label>
+                        <input type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} required className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white"/>
                     </div>
                 </div>
                 
-                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                    <h4 className="text-sm font-bold text-slate-300 mb-2">Line Items</h4>
-                    {formData.items.map((item, index) => (
-                        <div key={item.id} className="grid grid-cols-12 gap-2 mb-2 items-center">
-                            <input type="text" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} placeholder="Description" className="col-span-6 bg-slate-700 p-1.5 text-sm rounded"/>
-                            <input type="number" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', Number(e.target.value))} placeholder="Qty" className="col-span-2 bg-slate-700 p-1.5 text-sm rounded"/>
-                            <input type="number" value={item.unitPrice} onChange={e => handleItemChange(index, 'unitPrice', Number(e.target.value))} placeholder="Price" className="col-span-3 bg-slate-700 p-1.5 text-sm rounded"/>
-                            <button type="button" onClick={() => removeItem(index)} className="col-span-1 text-red-400 hover:text-red-300"><i className="fas fa-times"></i></button>
-                        </div>
-                    ))}
-                    <button type="button" onClick={addItem} className="text-xs text-cyan-400 hover:underline">+ Add Item</button>
-                </div>
-
-                <div className="flex justify-between items-center">
-                    <select name="status" value={formData.status} onChange={handleChange} className="bg-slate-700 p-2 rounded-md text-sm">
-                        {INVOICE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <div className="text-right">
-                        <p className="text-xs text-slate-400">Total Amount</p>
-                        <p className="text-xl font-bold text-white">${totalAmount.toLocaleString()}</p>
+                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                    <div className="flex justify-between items-center mb-4">
+                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Line Items</h4>
+                         <button type="button" onClick={addItem} className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
+                            <i className="fas fa-plus-circle mr-1"></i> Add Item
+                         </button>
+                    </div>
+                    <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        {formData.items.map((item, index) => (
+                            <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                                <div className="col-span-6">
+                                    <input type="text" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} placeholder="Service description..." className="w-full bg-slate-800 border border-slate-700 p-2 text-xs rounded-lg text-white"/>
+                                </div>
+                                <div className="col-span-2">
+                                    <input type="number" value={item.quantity} onChange={e => handleItemChange(index, 'quantity', Number(e.target.value))} placeholder="Qty" className="w-full bg-slate-800 border border-slate-700 p-2 text-xs rounded-lg text-white text-center"/>
+                                </div>
+                                <div className="col-span-3">
+                                    <input type="number" value={item.unitPrice} onChange={e => handleItemChange(index, 'unitPrice', Number(e.target.value))} placeholder="$" className="w-full bg-slate-800 border border-slate-700 p-2 text-xs rounded-lg text-white text-right"/>
+                                </div>
+                                <div className="col-span-1 flex justify-end">
+                                    <button type="button" onClick={() => removeItem(index)} className="text-red-500 hover:text-red-400 p-1"><i className="fas fa-times"></i></button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4">
+                <div className="flex justify-between items-center pt-2">
+                    <div className="w-1/3">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status</label>
+                        <select name="status" value={formData.status} onChange={handleChange} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white">
+                            {INVOICE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs font-bold text-slate-500 uppercase">Subtotal</p>
+                        <p className="text-2xl font-black text-white">${totalAmount.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-6 border-t border-slate-700">
                     <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" variant="primary">Save Invoice</Button>
+                    <Button type="submit" variant="primary">Finalize Invoice</Button>
                 </div>
             </form>
         </Modal>

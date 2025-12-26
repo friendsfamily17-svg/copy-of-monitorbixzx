@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { QualityCheck } from '../types';
 
 const initialChecks: QualityCheck[] = [
@@ -10,22 +11,26 @@ const initialChecks: QualityCheck[] = [
 export function useQualityControl(companyId: string | undefined) {
   const [checks, setChecks] = useState<QualityCheck[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setChecks([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `quality_checks_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         setChecks(JSON.parse(stored));
       } else {
-        if (companyId === '1') { // Default data for ACME
+        if (companyId === '1') {
           setChecks(initialChecks);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialChecks));
         } else {
           setChecks([]);
         }
@@ -35,40 +40,33 @@ export function useQualityControl(companyId: string | undefined) {
       setChecks([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: QualityCheck[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `quality_checks_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setChecks(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `quality_checks_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(checks));
+      } catch (error) {
+        console.error("Failed to save checks", error);
+      }
+  }, [checks, companyId]);
   
   const addCheck = useCallback((data: Omit<QualityCheck, 'id'>) => {
     const newCheck: QualityCheck = { ...data, id: `qc-${Date.now()}` };
-    setChecks(prev => {
-        const updated = [...prev, newCheck];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setChecks(prev => [...prev, newCheck]);
+  }, []);
 
   const updateCheck = useCallback((data: QualityCheck) => {
-    setChecks(prev => {
-        const updated = prev.map(c => c.id === data.id ? data : c);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setChecks(prev => prev.map(c => c.id === data.id ? data : c));
+  }, []);
 
   const deleteCheck = useCallback((id: string) => {
-     setChecks(prev => {
-        const updated = prev.filter(c => c.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setChecks(prev => prev.filter(c => c.id !== id));
+  }, []);
 
   return { checks, loading, addCheck, updateCheck, deleteCheck };
 }

@@ -2,14 +2,27 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../common/Button';
 import { useSettings } from '../../../hooks/useSettings';
+import { AppSettings } from '../../../types';
+
+// Safe defaults to use before data loads
+const defaultFormData: AppSettings = {
+  companyName: '',
+  currency: 'USD',
+  timezone: 'UTC',
+  notificationsEnabled: false,
+  autoSaveInterval: 5
+};
 
 export default function SettingsPage({ companyId }: { companyId: string }) {
   const { settings, updateSettings, loading } = useSettings(companyId);
-  const [formData, setFormData] = useState(settings);
+  // Initialize with defaultFormData so it's never null during first render
+  const [formData, setFormData] = useState<AppSettings>(defaultFormData);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    if(settings) setFormData(settings);
+    if (settings) {
+        setFormData(settings);
+    }
   }, [settings]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -31,7 +44,9 @@ export default function SettingsPage({ companyId }: { companyId: string }) {
     }
   };
 
-  if (loading) return <div className="flex justify-center items-center h-full"><i className="fas fa-spinner fa-spin text-4xl text-purple-400"></i></div>;
+  if (loading) {
+      return <div className="flex justify-center items-center h-full"><i className="fas fa-spinner fa-spin text-4xl text-purple-400"></i></div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto">

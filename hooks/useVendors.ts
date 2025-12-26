@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Vendor } from '../types';
 
 const initialVendors: Vendor[] = [
@@ -9,13 +10,18 @@ const initialVendors: Vendor[] = [
 export function useVendors(companyId: string | undefined) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
+  const isLoaded = useRef(false);
 
+  // Load data
   useEffect(() => {
     if (!companyId) {
         setVendors([]);
         setLoading(false);
         return;
     }
+    setLoading(true);
+    isLoaded.current = false;
+
     const STORAGE_KEY = `vendors_data_${companyId}`;
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -24,7 +30,6 @@ export function useVendors(companyId: string | undefined) {
       } else {
         if (companyId === '1') {
           setVendors(initialVendors);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(initialVendors));
         } else {
           setVendors([]);
         }
@@ -34,40 +39,33 @@ export function useVendors(companyId: string | undefined) {
       setVendors([]);
     } finally {
       setLoading(false);
+      isLoaded.current = true;
     }
   }, [companyId]);
 
-  const updateStorage = useCallback((updated: Vendor[]) => {
-    if (!companyId) return;
-    const STORAGE_KEY = `vendors_data_${companyId}`;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setVendors(updated);
-  }, [companyId]);
+  // Sync data
+  useEffect(() => {
+      if (!companyId || !isLoaded.current) return;
+      const STORAGE_KEY = `vendors_data_${companyId}`;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(vendors));
+      } catch (error) {
+        console.error("Failed to save vendors", error);
+      }
+  }, [vendors, companyId]);
   
   const addVendor = useCallback((data: Omit<Vendor, 'id'>) => {
     const newVendor: Vendor = { ...data, id: new Date().getTime().toString() };
-    setVendors(prev => {
-        const updated = [...prev, newVendor];
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setVendors(prev => [...prev, newVendor]);
+  }, []);
 
   const updateVendor = useCallback((data: Vendor) => {
-    setVendors(prev => {
-        const updated = prev.map(v => v.id === data.id ? data : v);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+    setVendors(prev => prev.map(v => v.id === data.id ? data : v));
+  }, []);
 
   const deleteVendor = useCallback((id: string) => {
-     setVendors(prev => {
-        const updated = prev.filter(v => v.id !== id);
-        updateStorage(updated);
-        return updated;
-    });
-  }, [updateStorage]);
+     setVendors(prev => prev.filter(v => v.id !== id));
+  }, []);
 
   return { vendors, loading, addVendor, updateVendor, deleteVendor };
 }

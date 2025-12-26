@@ -1,7 +1,11 @@
 
 import React from 'react';
 
-export const Hero: React.FC = () => {
+interface HeroProps {
+  onGetStarted?: () => void;
+}
+
+export const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
     return (
         <section className="relative pt-16 pb-20 lg:pt-24 lg:pb-28 text-center bg-grid-slate-800/[0.2]">
              <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-transparent"></div>
@@ -13,9 +17,9 @@ export const Hero: React.FC = () => {
                     Monitor Bizz is a unified performance monitoring system that allows multiple businesses to securely track KPIs, productivity, and growth—all under one domain.
                 </p>
                 <div className="mt-10 flex justify-center gap-4">
-                    <a href="#auth" className="inline-block bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-bold text-lg py-3 px-8 rounded-lg shadow-lg hover:from-purple-700 hover:to-cyan-600 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:ring-offset-slate-900 transition-all duration-300">
+                    <button onClick={onGetStarted} className="inline-block bg-gradient-to-r from-purple-600 to-cyan-500 text-white font-bold text-lg py-3 px-8 rounded-lg shadow-lg hover:from-purple-700 hover:to-cyan-600 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:ring-offset-slate-900 transition-all duration-300">
                         Get Started
-                    </a>
+                    </button>
                     <a href="#features" className="inline-block bg-slate-700/50 border border-slate-600 text-slate-300 font-bold text-lg py-3 px-8 rounded-lg hover:bg-slate-700 hover:text-white transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 focus:ring-offset-slate-900 transition-all duration-300">
                         Learn More
                     </a>
